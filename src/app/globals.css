@@ -1,26 +1,84 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: #faf7f2;
+  --foreground: #2c2416;
+  --border: #ede4d9;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1a1814;
+    --foreground: #e8e0d5;
+    --border: #2d2922;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Georgia, 'Noto Serif SC', 'Source Han Serif SC', serif;
+}
+
+/* Prose overrides for warm paper aesthetic */
+.prose {
+  --tw-prose-body: #2c2416;
+  --tw-prose-headings: #2c2416;
+  --tw-prose-links: #7a9a7e;
+  --tw-prose-bold: #2c2416;
+  --tw-prose-counters: #6b5e4f;
+  --tw-prose-bullets: #9b9284;
+  --tw-prose-hr: #ede4d9;
+  --tw-prose-quotes: #2c2416;
+  --tw-prose-quote-borders: #ede4d9;
+  --tw-prose-captions: #6b5e4f;
+  --tw-prose-code: #2c2416;
+  --tw-prose-pre-code: #e8e0d5;
+  --tw-prose-pre-bg: #1a1814;
+  --tw-prose-th-borders: #ede4d9;
+  --tw-prose-td-borders: #ede4d9;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose {
+    --tw-prose-body: #e8e0d5;
+    --tw-prose-headings: #e8e0d5;
+    --tw-prose-links: #8ab88e;
+    --tw-prose-bold: #e8e0d5;
+    --tw-prose-counters: #b8a898;
+    --tw-prose-bullets: #7a7265;
+    --tw-prose-hr: #2d2922;
+    --tw-prose-quotes: #e8e0d5;
+    --tw-prose-quote-borders: #2d2922;
+    --tw-prose-captions: #b8a898;
+    --tw-prose-code: #e8e0d5;
+    --tw-prose-pre-code: #e8e0d5;
+    --tw-prose-pre-bg: #221f1a;
+    --tw-prose-th-borders: #2d2922;
+    --tw-prose-td-borders: #2d2922;
+  }
+}
+
+/* Toast animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

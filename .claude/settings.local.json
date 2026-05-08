@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm install *)",
+      "Bash(where node *)",
+      "Read(//c/Program Files/**)",
+      "Bash(nvm version *)",
+      "Bash(nvm list *)",
+      "Bash(nvm use *)"
     ]
   }
 }

@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 我的个人博客
 
-## Getting Started
+基于 Next.js 14 的个人博客，包含博客、日记、待办、日程功能。支持 PWA 离线访问。
 
-First, run the development server:
+## 功能
+
+- **博客** — Markdown 撰写，静态生成，SEO 友好
+- **日记** — 按日期组织，记录每日生活
+- **待办** — 优先级管理、截止日期、导出/导入
+- **日程** — 按日期分组，时间规划
+
+## 技术栈
+
+- Next.js 14 + React 18 + TypeScript
+- Tailwind CSS v3
+- Markdown 文件存储 + gray-matter 解析
+- Serwist PWA（离线支持）
+- Vercel 部署
+
+## 本地开发
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 内容管理
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+所有内容存储在 `content/` 目录：
 
-## Learn More
+```
+content/
+├── blog/*.md          # 博客文章
+├── diary/YYYY/MM-DD.md # 日记
+└── data/*.json        # 待办/日程种子数据
+```
 
-To learn more about Next.js, take a look at the following resources:
+待办和日程数据在浏览器端编辑，可使用导出/导入功能备份。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 构建
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run build
+npm run start
+```
 
-## Deploy on Vercel
+## 部署
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+推送到 GitHub → Vercel 自动部署。详见 `dev-notes/2026-05-08-vercel-deploy.md`
