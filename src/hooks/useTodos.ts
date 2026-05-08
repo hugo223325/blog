@@ -6,7 +6,7 @@ import { useLocalStorage } from "./useLocalStorage";
 import { TodoData, TodoItem } from "@/types/todo";
 
 const STORAGE_KEY = "blog-todos";
-const SEED_URL = "/api/seed-data?type=todos";
+const SEED_URL = "/data/todos.json";
 
 function emptyData(): TodoData {
   return { version: 1, lastModified: new Date().toISOString(), items: [] };

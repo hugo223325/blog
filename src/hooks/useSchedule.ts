@@ -6,7 +6,7 @@ import { useLocalStorage } from "./useLocalStorage";
 import { ScheduleData, ScheduleEvent } from "@/types/schedule";
 
 const STORAGE_KEY = "blog-schedule";
-const SEED_URL = "/api/seed-data?type=schedule";
+const SEED_URL = "/data/schedule.json";
 
 function emptyData(): ScheduleData {
   return { version: 1, lastModified: new Date().toISOString(), events: [] };
