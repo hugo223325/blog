@@ -1,55 +1,85 @@
-# Personal Blog Project
+# 数字花园博客
 
-## Current Status (2026-05-08)
-- 四大模块（博客/日记/待办/日程）+ PWA 均已完成并构建通过
-- 尚未部署到 Vercel（需先 git push 到 GitHub）
-- 下一步优先：部署上线，让移动端能访问
-- Node 版本兼容问题已解决（使用 nvm-windows 切换到 v18.19.0）
-- 项目待办清单见 `TODO.md`
+## Current Status (2026-05-18)
 
-## Overview
-- Next.js 14 App Router + TypeScript personal blog with PWA support
-- Content: File-based markdown (blog/diary) + localStorage with seed JSON (todo/schedule)
-- Deployed on Vercel via git push
-- Node.js: Requires >=18.17 (currently v18.19.0 via nvm-windows)
+- **全动态架构已完成** — D1 数据库 + Workers API + 客户端前端
+- 部署于 Cloudflare Pages + Workers
+- 所有内容实时同步，无需 git push
+- Node 22+ 用于 Workers 开发，Node 18/22 均可构建前端
 
-## Key Architecture
-- **Blog/Diary**: Markdown in `content/` parsed at build time via `generateStaticParams()`. No server writes.
-- **Todo/Schedule**: Browser localStorage for runtime, `content/data/*.json` as seed. Manual export/import for cross-device sync. `StorageBackend` interface in `src/lib/storage.ts` for future Vercel KV migration.
-- **PWA**: Serwist (`@serwist/next` v9) — SW at `src/app/sw.ts`, manifest at `src/app/manifest.ts`
+## Architecture
+
+```
+浏览器 ←→ Cloudflare Pages（Next.js 静态前端）
+                ↓ fetch API
+         Workers（Hono，API 层）
+                ↓
+           ┌───┴───┐
+          D1        R2（待创建）
+```
+
+- **所有数据**: D1 数据库，Workers API 读写
+- **前端**: Next.js 14 静态导出，客户端组件 fetch API
+- **认证**: 密码存 D1 settings 表，sessionStorage 缓存
+- **PWA**: Serwist v9
+
+## API
+
+| URL | 用途 |
+|---|---|
+| `https://blog-api.1752190332.workers.dev` | Workers API |
+| Worker 代码 | `worker/src/index.ts` |
+| DB schema | `worker/schema.sql` |
 
 ## Commands
-- `npm run dev` — Start dev server (port 3000)
-- `npm run build` — Production build (generates static pages + service worker)
-- `npm run start` — Serve production build
-- `npm run lint` — Run ESLint
 
-## Project Conventions
-- Source code in `src/`, content in `content/`, dev notes in `dev-notes/`
-- Client components marked with `"use client"`, server components by default
-- Path alias `@/` maps to `src/`
-- UUID v4 for todo/schedule item IDs
-- Tailwind CSS v3 with `@tailwindcss/typography` for prose
+```bash
+npm run dev                # 前端开发 (port 3000)
+npm run build              # 前端构建
+cd worker && npm run deploy  # Workers 部署
+```
 
 ## File Map
-- `src/lib/content.ts` — FS helpers: read posts, get slugs, parse frontmatter
-- `src/lib/markdown.ts` — remark pipeline: gray-matter → remark-gfm → rehype-highlight → HTML
-- `src/lib/storage.ts` — StorageBackend interface + localStorage implementation
-- `src/lib/utils.ts` — formatDate, slugify utilities
-- `src/hooks/useLocalStorage.ts` — Generic typed localStorage hook
-- `src/hooks/useTodos.ts` — Todo CRUD + seed loading + export/import
-- `src/hooks/useSchedule.ts` — Schedule CRUD + seed loading + export/import
-- `src/app/api/seed-data/route.ts` — Serves `content/data/*.json` as API
-- `src/app/manifest.ts` — PWA manifest generation
-- `src/app/sw.ts` — Service worker (Serwist)
 
-## Content Structure
-- `content/blog/*.md` — filename = slug, frontmatter: title, date, tags, excerpt
-- `content/diary/YYYY/MM-DD.md` — frontmatter: date, mood, tags
-- `content/data/todos.json` — Todo seed data
-- `content/data/schedule.json` — Schedule seed data
+```
+src/
+├── lib/api.ts             # API 客户端（fetch 封装）
+├── lib/markdown.ts        # Markdown → HTML 渲染
+├── lib/utils.ts           # 工具函数
+├── hooks/
+│   ├── useTodos.ts        # 待办（API 驱动）
+│   ├── useSchedule.ts     # 日程（API 驱动）
+│   ├── useWeight.ts       # 体重（API 驱动）
+│   ├── useToast.tsx       # Toast 通知
+│   └── useKeyboard.ts     # 键盘快捷键
+├── components/
+│   ├── ui/
+│   │   ├── Editor.tsx     # Markdown 编辑器
+│   │   ├── PasswordGate.tsx # 密码验证
+│   │   ├── Providers.tsx  # Context 包装器
+│   │   └── Toaster.tsx    # Toast 渲染
+│   ├── blog/              # BlogCard, BlogContent
+│   ├── diary/             # DiaryEntry, DiaryCalendar
+│   ├── todo/              # TodoItem, AddTodoForm, TodoExportImport
+│   ├── schedule/          # ScheduleItem, AddScheduleForm
+│   ├── weight/            # WeightChart, AddWeightForm
+│   └── layout/            # Header, Navigation, Footer
+├── app/
+│   ├── page.tsx           # 首页（API 驱动）
+│   ├── blog/page.tsx      # 博客（列表 + 详情 + 编辑）
+│   ├── diary/page.tsx     # 日记（列表 + 详情 + 编辑）
+│   ├── todo/page.tsx      # 待办
+│   ├── schedule/page.tsx  # 日程
+│   ├── weight/page.tsx    # 体重
+│   ├── setup/page.tsx     # 改密码
+│   ├── not-found.tsx      # 404
+│   ├── sw.ts              # Service Worker
+│   └── manifest.ts        # PWA manifest
+└── types/                 # TypeScript 类型
+```
 
-## Key Decisions (see dev-notes/)
-- `dev-notes/2026-05-08-architecture.md` — Overall architecture decisions
-- `dev-notes/2026-05-08-pwa-setup.md` — Serwist PWA configuration
-- `dev-notes/2026-05-08-vercel-deploy.md` — Vercel deployment guide
+## Deployment
+
+- **前端**: `git push` → Cloudflare Pages 自动构建
+- **API**: `cd worker && npx wrangler deploy`
+- **DB schema**: `cd worker && npx wrangler d1 execute blog-db --file=schema.sql --remote`
