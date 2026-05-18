@@ -1,0 +1,15 @@
+name = "blog-api"
+main = "src/index.ts"
+compatibility_date = "2026-05-18"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "blog-db"
+database_id = "def4da5a-a599-41d9-b700-a0690903d51d"
+
+# [[r2_buckets]]
+# binding = "IMAGES"
+# bucket_name = "blog-images"
+
+[observability]
+enabled = true

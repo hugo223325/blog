@@ -1,75 +1,55 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { useLocalStorage } from "./useLocalStorage";
-import { ScheduleData, ScheduleEvent } from "@/types/schedule";
+import * as api from "@/lib/api";
 
-const STORAGE_KEY = "blog-schedule";
-const SEED_URL = "/data/schedule.json";
-
-function emptyData(): ScheduleData {
-  return { version: 1, lastModified: new Date().toISOString(), events: [] };
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  duration: number;
+  notes: string;
+  created_at: string;
 }
 
 export function useSchedule() {
-  const [data, setData, loaded] = useLocalStorage<ScheduleData>(
-    STORAGE_KEY,
-    emptyData()
-  );
-  const [seeded, setSeeded] = useState(false);
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (loaded && !seeded && data.events.length === 0) {
-      fetch(SEED_URL)
-        .then((res) => res.json())
-        .then((seed) => {
-          if (seed && seed.events && seed.events.length > 0) {
-            setData({ ...seed, lastModified: new Date().toISOString() });
-          }
-        })
-        .catch(() => {})
-        .finally(() => setSeeded(true));
-    }
-    if (loaded && data.events.length > 0) {
-      setSeeded(true);
-    }
-  }, [loaded, seeded, data.events.length, setData]);
-
-  const events = data.events.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    api.getSchedule()
+      .then(setEvents)
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
 
   const addEvent = useCallback(
-    (title: string, date: string, time: string, duration: number, notes: string) => {
-      const newEvent: ScheduleEvent = {
-        id: uuidv4(),
-        title,
-        date,
-        time,
-        duration,
-        notes,
-      };
-      setData((prev) => ({
+    async (title: string, date: string, time: string, duration: number, notes: string) => {
+      await api.createSchedule({ title, date, time, duration, notes });
+      setEvents((prev) => [
+        {
+          id: crypto.randomUUID(),
+          title,
+          date,
+          time,
+          duration,
+          notes,
+          created_at: new Date().toISOString(),
+        },
         ...prev,
-        lastModified: new Date().toISOString(),
-        events: [...prev.events, newEvent],
-      }));
+      ]);
     },
-    [setData]
+    []
   );
 
-  const removeEvent = useCallback(
-    (id: string) => {
-      setData((prev) => ({
-        ...prev,
-        lastModified: new Date().toISOString(),
-        events: prev.events.filter((e) => e.id !== id),
-      }));
-    },
-    [setData]
-  );
+  const removeEvent = useCallback(async (id: string) => {
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+    await api.deleteSchedule(id).catch(() => {});
+  }, []);
 
   const exportData = useCallback(() => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
+    const blob = new Blob([JSON.stringify({ events }, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -78,22 +58,31 @@ export function useSchedule() {
     a.download = `schedule-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [data]);
+  }, [events]);
 
   const importData = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const json = JSON.parse(e.target?.result as string);
-          if (json.events && Array.isArray(json.events)) {
-            setData({ ...json, lastModified: new Date().toISOString() });
+          const entries = json.events || json.items || [];
+          for (const entry of entries) {
+            await api.createSchedule({
+              title: entry.title,
+              date: entry.date,
+              time: entry.time || "09:00",
+              duration: entry.duration || 60,
+              notes: entry.notes || "",
+            }).catch(() => {});
           }
+          const fresh = await api.getSchedule();
+          setEvents(fresh);
         } catch {
           alert("导入失败：文件格式不正确");
         }
@@ -101,20 +90,7 @@ export function useSchedule() {
       reader.readAsText(file);
     };
     input.click();
-  }, [setData]);
+  }, []);
 
-  const getEventsByDate = useCallback(
-    (date: string) => events.filter((e) => e.date === date),
-    [events]
-  );
-
-  return {
-    events,
-    loaded: seeded,
-    addEvent,
-    removeEvent,
-    exportData,
-    importData,
-    getEventsByDate,
-  };
+  return { events, loaded, addEvent, removeEvent, exportData, importData };
 }

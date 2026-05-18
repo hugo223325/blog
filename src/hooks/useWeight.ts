@@ -1,155 +1,137 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { useLocalStorage } from "./useLocalStorage";
-import { WeightData, WeightEntry } from "@/types/weight";
+import * as api from "@/lib/api";
 
-const STORAGE_KEY = "blog-weight";
-const SEED_URL = "/data/weight.json";
-
-function emptyData(): WeightData {
-  return { version: 1, lastModified: new Date().toISOString(), entries: [] };
+interface WeightEntry {
+  id: string;
+  date: string;
+  weight: number;
+  note: string;
+  created_at: string;
 }
 
 export function useWeight() {
-  const [data, setData, loaded] = useLocalStorage<WeightData>(
-    STORAGE_KEY,
-    emptyData()
-  );
-  const [seeded, setSeeded] = useState(false);
+  const [entries, setEntries] = useState<WeightEntry[]>([]);
+  const [height, setH] = useState<number | undefined>();
+  const [goalWeight, setGW] = useState<number | undefined>();
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (loaded && !seeded && data.entries.length === 0) {
-      fetch(SEED_URL)
-        .then((res) => res.json())
-        .then((seed) => {
-          if (seed && seed.entries && seed.entries.length > 0) {
-            setData({
-              ...seed,
-              lastModified: new Date().toISOString(),
-            });
-          }
-        })
-        .catch(() => {})
-        .finally(() => setSeeded(true));
-    }
-    if (loaded && data.entries.length > 0) {
-      setSeeded(true);
-    }
-  }, [loaded, seeded, data.entries.length, setData]);
-
-  const entries = [...data.entries].sort(
-    (a, b) => b.date.localeCompare(a.date)
-  );
+    Promise.all([
+      api.getWeight().then(setEntries).catch(() => {}),
+      api.getSettings().then((s) => {
+        if (s.height) setH(Number(s.height));
+        if (s.goalWeight) setGW(Number(s.goalWeight));
+      }).catch(() => {}),
+    ]).finally(() => setLoaded(true));
+  }, []);
 
   const addEntry = useCallback(
-    (date: string, weight: number, note?: string) => {
-      const newEntry: WeightEntry = {
-        id: uuidv4(),
-        date,
-        weight,
-        note: note?.trim() || undefined,
-      };
-      setData((prev) => ({
+    async (date: string, weight: number, note?: string) => {
+      await api.createWeight({ date, weight, note });
+      setEntries((prev) => [
+        {
+          id: crypto.randomUUID(),
+          date,
+          weight,
+          note: note || "",
+          created_at: new Date().toISOString(),
+        },
         ...prev,
-        lastModified: new Date().toISOString(),
-        entries: [newEntry, ...prev.entries],
-      }));
+      ]);
     },
-    [setData]
+    []
   );
 
-  const removeEntry = useCallback(
-    (id: string) => {
-      setData((prev) => ({
-        ...prev,
-        lastModified: new Date().toISOString(),
-        entries: prev.entries.filter((e) => e.id !== id),
-      }));
-    },
-    [setData]
-  );
+  const removeEntry = useCallback(async (id: string) => {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    await api.deleteWeight(id).catch(() => {});
+  }, []);
 
-  const updateEntry = useCallback(
-    (id: string, updates: Partial<Pick<WeightEntry, "weight" | "date" | "note">>) => {
-      setData((prev) => ({
-        ...prev,
-        lastModified: new Date().toISOString(),
-        entries: prev.entries.map((e) =>
-          e.id === id ? { ...e, ...updates } : e
-        ),
-      }));
-    },
-    [setData]
-  );
+  const updateEntry = useCallback(async (id: string, updates: any) => {
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
+    );
+    // Weight API only has POST/DELETE; skip update for now
+  }, []);
 
-  const setHeight = useCallback(
-    (height: number | undefined) => {
-      setData((prev) => ({ ...prev, height }));
-    },
-    [setData]
-  );
+  const setHeight = useCallback(async (h: number | undefined) => {
+    setH(h);
+    if (h !== undefined) {
+      await api.updateSettings({ height: String(h) }).catch(() => {});
+    }
+  }, []);
 
-  const setGoalWeight = useCallback(
-    (goalWeight: number | undefined) => {
-      setData((prev) => ({ ...prev, goalWeight }));
-    },
-    [setData]
-  );
+  const setGoalWeight = useCallback(async (gw: number | undefined) => {
+    setGW(gw);
+    if (gw !== undefined) {
+      await api.updateSettings({ goalWeight: String(gw) }).catch(() => {});
+    }
+  }, []);
 
-  const reloadSeed = useCallback(() => {
-    return fetch(SEED_URL)
-      .then((res) => res.json())
-      .then((seed) => {
-        if (seed && seed.entries && Array.isArray(seed.entries)) {
-          setData({ ...seed, lastModified: new Date().toISOString() });
-          return seed.entries.length;
-        }
-        return 0;
-      });
-  }, [setData]);
+  const reloadSeed = useCallback(async () => {
+    const data = await api.getWeight();
+    setEntries(data);
+    return data.length;
+  }, []);
 
   const exportData = useCallback(() => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob(
+      [JSON.stringify({ entries, height, goalWeight }, null, 2)],
+      { type: "application/json" }
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `weight-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [data]);
+  }, [entries, height, goalWeight]);
 
   const importData = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const json = JSON.parse(e.target?.result as string);
-          if (json.entries && Array.isArray(json.entries)) {
-            setData({ ...json, lastModified: new Date().toISOString() });
+          const list = json.entries || [];
+          for (const entry of list) {
+            await api.createWeight({
+              date: entry.date,
+              weight: entry.weight,
+              note: entry.note || "",
+            }).catch(() => {});
           }
+          if (json.height) {
+            await api.updateSettings({ height: String(json.height) });
+            setH(json.height);
+          }
+          if (json.goalWeight) {
+            await api.updateSettings({ goalWeight: String(json.goalWeight) });
+            setGW(json.goalWeight);
+          }
+          const fresh = await api.getWeight();
+          setEntries(fresh);
         } catch {
-          alert("导入失败：文件格式不正确");
+          alert("导入失败");
         }
       };
       reader.readAsText(file);
     };
     input.click();
-  }, [setData]);
+  }, []);
 
   return {
     entries,
-    height: data.height,
-    goalWeight: data.goalWeight,
-    loaded: seeded,
+    height,
+    goalWeight,
+    loaded,
     addEntry,
     removeEntry,
     updateEntry,
