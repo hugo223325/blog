@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Calendar, CheckSquare, Home } from "lucide-react";
+import { BookOpen, Calendar, CheckSquare, Home, TrendingUp } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "首页", icon: Home },
@@ -7,6 +7,7 @@ const navItems = [
   { href: "/diary", label: "日记", icon: BookOpen },
   { href: "/todo", label: "待办", icon: CheckSquare },
   { href: "/schedule", label: "日程", icon: Calendar },
+  { href: "/weight", label: "体重", icon: TrendingUp },
 ];
 
 export default function Header() {

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { getAllBlogPosts, getDiaryDates } from "@/lib/content";
 import { formatDate } from "@/lib/utils";
-import { BookOpen, Calendar, CheckSquare, NotebookPen } from "lucide-react";
+import { BookOpen, Calendar, CheckSquare, NotebookPen, TrendingUp } from "lucide-react";
 
 const features = [
   { href: "/blog", label: "博客", desc: "文章", icon: BookOpen, accent: "hover:text-sage" },
   { href: "/diary", label: "日记", desc: "记录", icon: NotebookPen, accent: "hover:text-lavender" },
   { href: "/todo", label: "待办", desc: "任务", icon: CheckSquare, accent: "hover:text-terracotta" },
   { href: "/schedule", label: "日程", desc: "时间", icon: Calendar, accent: "hover:text-sage" },
+  { href: "/weight", label: "体重", desc: "健康", icon: TrendingUp, accent: "hover:text-sage" },
 ];
 
 export default function Home() {
