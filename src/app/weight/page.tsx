@@ -37,9 +37,13 @@ export default function WeightPage() {
   const [goalInput, setGoalInput] = useState(String(goalWeight || ""));
 
   const handleAdd = useCallback(
-    (date: string, weight: number, note?: string) => {
-      addEntry(date, weight, note);
-      toast("已添加记录");
+    async (date: string, weight: number, note?: string) => {
+      try {
+        await addEntry(date, weight, note);
+        toast("已添加记录");
+      } catch {
+        toast("添加失败，检查网络");
+      }
     },
     [addEntry, toast]
   );

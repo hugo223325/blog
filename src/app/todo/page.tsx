@@ -27,9 +27,13 @@ export default function TodoPage() {
   const lastRemovedRef = useRef<{ id: string; text: string; priority: string; done: boolean; createdAt: string; dueDate: string | null } | null>(null);
 
   const handleAdd = useCallback(
-    (text: string, priority: "high" | "medium" | "low", dueDate: string | null) => {
-      addTodo(text, priority, dueDate);
-      toast("已添加");
+    async (text: string, priority: "high" | "medium" | "low", dueDate: string | null) => {
+      try {
+        await addTodo(text, priority, dueDate);
+        toast("已添加");
+      } catch {
+        toast("添加失败，检查网络");
+      }
     },
     [addTodo, toast]
   );

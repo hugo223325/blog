@@ -20,9 +20,13 @@ export default function SchedulePage() {
   const { toast } = useToast();
 
   const handleAdd = useCallback(
-    (title: string, date: string, time: string, duration: number, notes: string) => {
-      addEvent(title, date, time, duration, notes);
-      toast("已添加日程");
+    async (title: string, date: string, time: string, duration: number, notes: string) => {
+      try {
+        await addEvent(title, date, time, duration, notes);
+        toast("已添加日程");
+      } catch {
+        toast("添加失败，检查网络");
+      }
     },
     [addEvent, toast]
   );
