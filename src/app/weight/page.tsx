@@ -3,6 +3,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useWeight } from "@/hooks/useWeight";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 import WeightChart from "@/components/weight/WeightChart";
 import AddWeightForm from "@/components/weight/AddWeightForm";
 import TodoExportImport from "@/components/todo/TodoExportImport";
@@ -31,21 +32,24 @@ export default function WeightPage() {
   } = useWeight();
 
   const { toast } = useToast();
+  const { ensureAuth } = useAuth();
   const [days, setDays] = useState(30);
   const [showSettings, setShowSettings] = useState(false);
   const [heightInput, setHeightInput] = useState(String(height || ""));
   const [goalInput, setGoalInput] = useState(String(goalWeight || ""));
 
   const handleAdd = useCallback(
-    async (date: string, weight: number, note?: string) => {
-      try {
-        await addEntry(date, weight, note);
-        toast("已添加记录");
-      } catch {
-        toast("添加失败，检查网络");
-      }
+    (date: string, weight: number, note?: string) => {
+      ensureAuth(async () => {
+        try {
+          await addEntry(date, weight, note);
+          toast("已添加记录");
+        } catch {
+          toast("添加失败");
+        }
+      });
     },
-    [addEntry, toast]
+    [addEntry, toast, ensureAuth]
   );
 
   const handleReloadSeed = useCallback(() => {
@@ -57,10 +61,12 @@ export default function WeightPage() {
 
   const handleRemove = useCallback(
     (id: string) => {
-      removeEntry(id);
-      toast("已删除", { label: "撤销", onClick: () => {} });
+      ensureAuth(() => {
+        removeEntry(id);
+        toast("已删除", { label: "撤销", onClick: () => {} });
+      });
     },
-    [removeEntry, toast]
+    [removeEntry, toast, ensureAuth]
   );
 
   // Stats

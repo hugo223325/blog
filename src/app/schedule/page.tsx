@@ -3,6 +3,7 @@
 import { useMemo, useCallback } from "react";
 import { useSchedule } from "@/hooks/useSchedule";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 import ScheduleItem from "@/components/schedule/ScheduleItem";
 import AddScheduleForm from "@/components/schedule/AddScheduleForm";
 import TodoExportImport from "@/components/todo/TodoExportImport";
@@ -18,28 +19,31 @@ export default function SchedulePage() {
   } = useSchedule();
 
   const { toast } = useToast();
+  const { ensureAuth } = useAuth();
 
   const handleAdd = useCallback(
-    async (title: string, date: string, time: string, duration: number, notes: string) => {
-      try {
-        await addEvent(title, date, time, duration, notes);
-        toast("已添加日程");
-      } catch {
-        toast("添加失败，检查网络");
-      }
+    (title: string, date: string, time: string, duration: number, notes: string) => {
+      ensureAuth(async () => {
+        try {
+          await addEvent(title, date, time, duration, notes);
+          toast("已添加日程");
+        } catch {
+          toast("添加失败");
+        }
+      });
     },
-    [addEvent, toast]
+    [addEvent, toast, ensureAuth]
   );
 
   const handleRemove = useCallback(
     (id: string) => {
-      const event = events.find((e) => e.id === id);
-      removeEvent(id);
-      if (event) {
-        toast("已删除日程");
-      }
+      ensureAuth(() => {
+        const event = events.find((e) => e.id === id);
+        removeEvent(id);
+        if (event) toast("已删除日程");
+      });
     },
-    [events, removeEvent, toast]
+    [events, removeEvent, toast, ensureAuth]
   );
 
   const grouped = useMemo(() => {

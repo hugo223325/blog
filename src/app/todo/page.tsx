@@ -3,6 +3,7 @@
 import { useRef, useCallback } from "react";
 import { useTodos } from "@/hooks/useTodos";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import TodoItem from "@/components/todo/TodoItem";
 import AddTodoForm from "@/components/todo/AddTodoForm";
@@ -21,46 +22,50 @@ export default function TodoPage() {
   } = useTodos();
 
   const { toast } = useToast();
+  const { ensureAuth } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Track last removed for undo
   const lastRemovedRef = useRef<{ id: string; text: string; priority: string; done: boolean; createdAt: string; dueDate: string | null } | null>(null);
 
   const handleAdd = useCallback(
-    async (text: string, priority: "high" | "medium" | "low", dueDate: string | null) => {
-      try {
-        await addTodo(text, priority, dueDate);
-        toast("已添加");
-      } catch {
-        toast("添加失败，检查网络");
-      }
+    (text: string, priority: "high" | "medium" | "low", dueDate: string | null) => {
+      ensureAuth(async () => {
+        try {
+          await addTodo(text, priority, dueDate);
+          toast("已添加");
+        } catch {
+          toast("添加失败");
+        }
+      });
     },
-    [addTodo, toast]
+    [addTodo, toast, ensureAuth]
   );
 
   const handleRemove = useCallback(
     (id: string) => {
-      const item = items.find((i) => i.id === id);
-      if (!item) return;
-      // Store for undo
-      lastRemovedRef.current = {
-        id: item.id,
-        text: item.text,
-        priority: item.priority,
-        done: item.done,
-        createdAt: item.createdAt,
-        dueDate: item.dueDate,
-      };
-      removeTodo(id);
-      toast("已删除", {
-        label: "撤销",
-        onClick: () => {
-          if (lastRemovedRef.current) {
-            const r = lastRemovedRef.current;
-            addTodo(r.text, r.priority as "high" | "medium" | "low", r.dueDate);
-            lastRemovedRef.current = null;
-          }
-        },
+      ensureAuth(() => {
+        const item = items.find((i) => i.id === id);
+        if (!item) return;
+        lastRemovedRef.current = {
+          id: item.id,
+          text: item.text,
+          priority: item.priority,
+          done: item.done,
+          createdAt: item.createdAt,
+          dueDate: item.dueDate,
+        };
+        removeTodo(id);
+        toast("已删除", {
+          label: "撤销",
+          onClick: () => {
+            if (lastRemovedRef.current) {
+              const r = lastRemovedRef.current;
+              addTodo(r.text, r.priority as "high" | "medium" | "low", r.dueDate);
+              lastRemovedRef.current = null;
+            }
+          },
+        });
       });
     },
     [items, removeTodo, toast, addTodo]
