@@ -98,6 +98,18 @@ export function useWeight() {
     [setData]
   );
 
+  const reloadSeed = useCallback(() => {
+    return fetch(SEED_URL)
+      .then((res) => res.json())
+      .then((seed) => {
+        if (seed && seed.entries && Array.isArray(seed.entries)) {
+          setData({ ...seed, lastModified: new Date().toISOString() });
+          return seed.entries.length;
+        }
+        return 0;
+      });
+  }, [setData]);
+
   const exportData = useCallback(() => {
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: "application/json",
@@ -143,6 +155,7 @@ export function useWeight() {
     updateEntry,
     setHeight,
     setGoalWeight,
+    reloadSeed,
     exportData,
     importData,
   };

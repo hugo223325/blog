@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/useToast";
 import WeightChart from "@/components/weight/WeightChart";
 import AddWeightForm from "@/components/weight/AddWeightForm";
 import TodoExportImport from "@/components/todo/TodoExportImport";
-import { Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 
 const TIME_RANGES = [
   { label: "7天", days: 7 },
@@ -23,6 +23,7 @@ export default function WeightPage() {
     loaded,
     addEntry,
     removeEntry,
+    reloadSeed,
     exportData,
     importData,
     setHeight,
@@ -42,6 +43,13 @@ export default function WeightPage() {
     },
     [addEntry, toast]
   );
+
+  const handleReloadSeed = useCallback(() => {
+    reloadSeed().then((count) => {
+      if (count > 0) toast(`已从种子数据加载 ${count} 条记录`);
+      else toast("种子数据为空");
+    }).catch(() => toast("加载失败"));
+  }, [reloadSeed, toast]);
 
   const handleRemove = useCallback(
     (id: string) => {
@@ -249,7 +257,17 @@ export default function WeightPage() {
             <h2 className="font-sans text-sm font-semibold text-ink-primary dark:text-[#e8e0d5]">
               记录 ({entries.length})
             </h2>
-            <TodoExportImport onExport={exportData} onImport={importData} />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleReloadSeed}
+                className="inline-flex items-center gap-1 px-3 py-1.5 font-sans text-xs text-ink-secondary dark:text-[#b8a898] border border-page-sand dark:border-[#2d2922] rounded-md hover:bg-page-warm dark:hover:bg-[#221f1a] transition-colors duration-200"
+                title="从线上种子数据重新加载"
+              >
+                <RefreshCw size={14} />
+                重置
+              </button>
+              <TodoExportImport onExport={exportData} onImport={importData} />
+            </div>
           </div>
 
           {entries.length === 0 ? (
