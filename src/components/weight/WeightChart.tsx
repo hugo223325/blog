@@ -92,6 +92,43 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
     [entries, cutoff]
   );
 
+  // Mouse/touch → nearest point (MUST be before any conditional return)
+  const findNearest = useCallback(
+    (clientX: number, clientY: number) => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const mx = (clientX - rect.left) * scaleX;
+
+      let best = -1;
+      let bestDist = Infinity;
+      const n = filtered.length;
+      for (let i = 0; i < n; i++) {
+        const x =
+          n === 1
+            ? PAD.left + INNER_W / 2
+            : PAD.left + (i / (n - 1)) * INNER_W;
+        const hDist = Math.abs(x - mx);
+        if (hDist < 40 && hDist < bestDist) {
+          bestDist = hDist;
+          best = i;
+        }
+      }
+      setHoverIndex(best >= 0 ? best : null);
+    },
+    [filtered]
+  );
+
+  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const evt = "touches" in e ? e.touches[0] : e;
+    findNearest(evt.clientX, evt.clientY);
+  };
+
+  const handleLeave = () => setHoverIndex(null);
+
+  // Empty state
   if (filtered.length === 0) {
     return (
       <div className="w-full h-56 flex items-center justify-center bg-page-warm dark:bg-[#221f1a] rounded-lg">
@@ -102,7 +139,8 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
     );
   }
 
-  // Scales
+  // ── All derived values below this line (no more hooks) ──
+
   const weights = filtered.map((e) => e.weight);
   const wMin = Math.min(...weights, goalWeight ?? Infinity);
   const wMax = Math.max(...weights, goalWeight ?? -Infinity);
@@ -118,81 +156,36 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
   const yScale = (w: number) =>
     PAD.top + INNER_H - ((w - yMin) / (yMax - yMin)) * INNER_H;
 
-  // Data points array
   const pts: [number, number][] = filtered.map((e, i) => [
     xScale(i),
     yScale(e.weight),
   ]);
 
-  // Paths
   const linePath = catmullRomToBezier(pts, 0.35);
   const areaPath =
     pts.length < 2
       ? ""
       : `${linePath} L ${pts[pts.length - 1][0]},${PAD.top + INNER_H} L ${pts[0][0]},${PAD.top + INNER_H} Z`;
 
-  // Tick labels
-  const yTicks = niceTicks(yMin, yMax, 3);
-  const xTickInterval = Math.max(1, Math.ceil(filtered.length / 6));
-  const xTicks = filtered.filter((_, i) => i % xTickInterval === 0);
-
-  // Estimate line length for animation
-  const lineLen = useMemo(() => {
+  const lineLen = (() => {
     let total = 0;
     for (let i = 1; i < pts.length; i++) {
       const dx = pts[i][0] - pts[i - 1][0];
       const dy = pts[i][1] - pts[i - 1][1];
       total += Math.sqrt(dx * dx + dy * dy);
     }
-    return Math.max(total * 1.15, 100); // 15% fudge for curves
-  }, [pts]);
+    return Math.max(total * 1.15, 100);
+  })();
 
-  // Tooltip data
+  const yTicks = niceTicks(yMin, yMax, 3);
+  const xTickInterval = Math.max(1, Math.ceil(filtered.length / 6));
+  const xTicks = filtered.filter((_, i) => i % xTickInterval === 0);
+
   const hoverEntry = hoverIndex !== null ? filtered[hoverIndex] : null;
   const hoverBmi =
     hoverEntry && height
       ? (hoverEntry.weight / ((height / 100) * (height / 100))).toFixed(1)
       : null;
-
-  // Mouse/touch → nearest point
-  const findNearest = useCallback(
-    (clientX: number, clientY: number) => {
-      const svg = svgRef.current;
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const scaleX = W / rect.width;
-      const scaleY = H / rect.height;
-      const mx = (clientX - rect.left) * scaleX;
-      const my = (clientY - rect.top) * scaleY;
-
-      let best = -1;
-      let bestDist = Infinity;
-      for (let i = 0; i < pts.length; i++) {
-        const dx = pts[i][0] - mx;
-        const dy = pts[i][1] - my;
-        const dist = dx * dx + dy * dy;
-        // Favor horizontal proximity
-        const hDist = Math.abs(pts[i][0] - mx);
-        if (hDist < 40 && dist < bestDist) {
-          bestDist = dist;
-          best = i;
-        }
-      }
-      setHoverIndex(best >= 0 ? best : null);
-    },
-    [pts]
-  );
-
-  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    const evt = "touches" in e ? e.touches[0] : e;
-    findNearest(evt.clientX, evt.clientY);
-  };
-
-  const handleLeave = () => setHoverIndex(null);
-
-  // Latest entry for pulse
-  const isLatest = (i: number) => i === filtered.length - 1;
 
   return (
     <div className="relative">
@@ -239,28 +232,30 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
         ))}
 
         {/* Goal line */}
-        {goalWeight !== undefined && yScale(goalWeight) > PAD.top && yScale(goalWeight) < PAD.top + INNER_H && (
-          <>
-            <line
-              x1={PAD.left}
-              y1={yScale(goalWeight)}
-              x2={W - PAD.right}
-              y2={yScale(goalWeight)}
-              stroke="#c17d5e"
-              strokeWidth="1.2"
-              strokeDasharray="6 4"
-              opacity="0.7"
-            />
-            <text
-              x={PAD.left + 6}
-              y={yScale(goalWeight) - 5}
-              className="text-[10px] fill-terracotta dark:fill-[#d49578]"
-              fontFamily="system-ui"
-            >
-              目标 {goalWeight}
-            </text>
-          </>
-        )}
+        {goalWeight !== undefined &&
+          yScale(goalWeight) > PAD.top &&
+          yScale(goalWeight) < PAD.top + INNER_H && (
+            <>
+              <line
+                x1={PAD.left}
+                y1={yScale(goalWeight)}
+                x2={W - PAD.right}
+                y2={yScale(goalWeight)}
+                stroke="#c17d5e"
+                strokeWidth="1.2"
+                strokeDasharray="6 4"
+                opacity="0.7"
+              />
+              <text
+                x={PAD.left + 6}
+                y={yScale(goalWeight) - 5}
+                className="text-[10px] fill-terracotta dark:fill-[#d49578]"
+                fontFamily="system-ui"
+              >
+                目标 {goalWeight}
+              </text>
+            </>
+          )}
 
         {/* Area fill */}
         {areaPath && <path d={areaPath} fill={`url(#wGrad-${animKey})`} />}
@@ -280,43 +275,46 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
         />
 
         {/* Data points */}
-        {filtered.map((e, i) => (
-          <g key={e.id}>
-            {/* Pulse ring on latest */}
-            {isLatest(i) && (
+        {filtered.map((e, i) => {
+          const latest = i === filtered.length - 1;
+          const hovered = hoverIndex === i;
+          return (
+            <g key={e.id}>
+              {latest && (
+                <circle
+                  cx={pts[i][0]}
+                  cy={pts[i][1]}
+                  r="5"
+                  fill="none"
+                  stroke="#7a9a7e"
+                  strokeWidth="1.5"
+                  opacity="0.4"
+                  style={{ animation: "pulse 2s ease infinite" }}
+                />
+              )}
+              {hovered && (
+                <circle
+                  cx={pts[i][0]}
+                  cy={pts[i][1]}
+                  r="12"
+                  fill="#7a9a7e"
+                  opacity="0.12"
+                />
+              )}
               <circle
                 cx={pts[i][0]}
                 cy={pts[i][1]}
-                r="5"
-                fill="none"
-                stroke="#7a9a7e"
-                strokeWidth="1.5"
-                opacity="0.4"
-                style={{ animation: "pulse 2s ease infinite", transformOrigin: `${pts[i][0]}px ${pts[i][1]}px` }}
+                r={hovered ? 5.5 : latest ? 4.5 : 3}
+                fill={hovered ? "#7a9a7e" : "#faf7f2"}
+                stroke={hovered ? "#faf7f2" : "#7a9a7e"}
+                strokeWidth={latest && !hovered ? 2.5 : 2}
+                style={{
+                  transition: "r 0.2s ease, fill 0.2s ease, stroke 0.2s ease",
+                }}
               />
-            )}
-            {/* Hover highlight */}
-            {hoverIndex === i && (
-              <circle
-                cx={pts[i][0]}
-                cy={pts[i][1]}
-                r="12"
-                fill="#7a9a7e"
-                opacity="0.12"
-              />
-            )}
-            {/* Dot */}
-            <circle
-              cx={pts[i][0]}
-              cy={pts[i][1]}
-              r={hoverIndex === i ? 5.5 : isLatest(i) ? 4.5 : 3}
-              fill={hoverIndex === i ? "#7a9a7e" : "#faf7f2"}
-              stroke={hoverIndex === i ? "#faf7f2" : "#7a9a7e"}
-              strokeWidth={isLatest(i) && hoverIndex !== i ? 2.5 : 2}
-              style={{ transition: "r 0.2s ease, fill 0.2s ease, stroke 0.2s ease" }}
-            />
-          </g>
-        ))}
+            </g>
+          );
+        })}
 
         {/* X-axis labels */}
         {xTicks.map((e) => (
@@ -332,7 +330,7 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
           </text>
         ))}
 
-        {/* Hover vertical line */}
+        {/* Hover indicator line */}
         {hoverEntry && hoverIndex !== null && (
           <line
             x1={pts[hoverIndex][0]}
@@ -350,7 +348,7 @@ export default function WeightChart({ entries, goalWeight, height, days }: Props
       {/* Tooltip card */}
       {hoverEntry && hoverIndex !== null && (
         <div
-          className="absolute z-10 px-3 py-2 rounded-md bg-page-cream dark:bg-[#1a1814] border border-page-sand dark:border-[#2d2922] pointer-events-none shadow-sm"
+          className="absolute z-10 px-3 py-2 rounded-md bg-page-cream dark:bg-[#1a1814] border border-page-sand dark:border-[#2d2922] pointer-events-none"
           style={{
             left: `${((pts[hoverIndex][0] / W) * 100).toFixed(1)}%`,
             top: 0,
