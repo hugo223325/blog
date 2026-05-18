@@ -7,7 +7,12 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.use("*", cors());
+app.use("*", cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  maxAge: 86400,
+}));
 
 /* ── Auth middleware ── */
 async function requireAuth(c: any, next: any) {
