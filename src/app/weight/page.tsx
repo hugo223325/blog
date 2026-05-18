@@ -189,7 +189,7 @@ export default function WeightPage() {
           </button>
         </div>
 
-        <WeightChart entries={entries} goalWeight={goalWeight} days={days} />
+        <WeightChart entries={entries} goalWeight={goalWeight} height={height} days={days} />
       </div>
 
       {/* Settings panel */}
