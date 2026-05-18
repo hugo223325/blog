@@ -1,3 +1,8 @@
 name = "blog"
 pages_build_output_dir = "out"
 command = "npm run build"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "blog-db"
+database_id = "def4da5a-a599-41d9-b700-a0690903d51d"

@@ -1,4 +1,4 @@
-const BASE = "https://blog-api.1752190332.workers.dev";
+const BASE = ""; // Same domain — Pages Functions handle /api/*
 
 function getAuth(): string {
   if (typeof window === "undefined") return "";
