@@ -1,6 +1,6 @@
 name = "blog"
 pages_build_output_dir = "out"
-command = "npm run build"
+command = "npm run build && cp _worker.js out/"
 
 [[d1_databases]]
 binding = "DB"
