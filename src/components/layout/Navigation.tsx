@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Calendar, CheckSquare, Home, TrendingUp } from "lucide-react";
+import { BookOpen, Calendar, CheckSquare, Home, Settings, TrendingUp } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "首页", icon: Home },
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/todo", label: "待办", icon: CheckSquare },
   { href: "/schedule", label: "日程", icon: Calendar },
   { href: "/weight", label: "体重", icon: TrendingUp },
+  { href: "/setup", label: "设置", icon: Settings },
 ];
 
 export default function Navigation() {

@@ -55,7 +55,7 @@ export default function SchedulePage() {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
   }, [events]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = (() => { const d = new Date(); d.setHours(d.getHours() + 8); return d.toISOString().slice(0, 10); })();
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">

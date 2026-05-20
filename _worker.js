@@ -10,6 +10,7 @@ export default {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type,Authorization",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
     };
 
     if (method === "OPTIONS") return new Response(null, { status: 204, headers });
@@ -18,6 +19,19 @@ export default {
     const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
     const body = () => req.json().catch(() => ({}));
     const param = (n) => path.split("/")[n];
+    // Beijing time (UTC+8)
+    const bjNow = () => {
+      const d = new Date();
+      d.setHours(d.getHours() + 8);
+      return d.toISOString().replace("Z", "+08:00");
+    };
+    // Safe slug — never empty, avoids Chinese chars being stripped
+    const makeSlug = (title) => {
+      const base = title || "untitled";
+      // Try to extract alphanumeric + Chinese chars, join with dash
+      const cleaned = base.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9一-鿿\-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "") || "post";
+      return cleaned.slice(0, 60) + "-" + Date.now().toString(36);
+    };
 
     // Auth
     async function auth() {
@@ -54,9 +68,9 @@ export default {
       if (path === "/api/posts" && method === "POST") {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const b = await body();
-        const slug = b.slug || b.title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
-        const now = new Date().toISOString();
-        await env.DB.prepare("INSERT INTO posts (slug,title,content,excerpt,tags,created_at,updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET title=excluded.title,content=excluded.content,excerpt=excluded.excerpt,tags=excluded.tags,updated_at=excluded.updated_at").bind(slug, b.title, b.content, b.excerpt||"", JSON.stringify(b.tags||[]), now, now).run();
+        const slug = b.slug || makeSlug(b.title);
+        const now = bjNow();
+        await env.DB.prepare("INSERT INTO posts (slug,title,content,excerpt,tags,created_at,updated_at) VALUES (?,?,?,?,?,?,?)").bind(slug, b.title, b.content, b.excerpt||"", JSON.stringify(b.tags||[]), now, now).run();
         return json({ slug, ok: true });
       }
 
@@ -64,7 +78,7 @@ export default {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const slug = param(3);
         const b = await body();
-        const now = new Date().toISOString();
+        const now = bjNow();
         await env.DB.prepare("UPDATE posts SET title=?,content=?,excerpt=?,tags=?,updated_at=? WHERE slug=?").bind(b.title, b.content, b.excerpt||"", JSON.stringify(b.tags||[]), now, slug).run();
         return json({ ok: true });
       }
@@ -73,6 +87,46 @@ export default {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         await env.DB.prepare("DELETE FROM posts WHERE slug = ?").bind(param(3)).run();
         return json({ ok: true });
+      }
+
+      // ── Fix empty slugs ──
+      if (path === "/api/fix-slugs" && method === "POST") {
+        if (!(await auth())) return json({ error: "密码错误" }, 401);
+        const { results } = await env.DB.prepare("SELECT slug, title FROM posts WHERE slug = '' OR slug IS NULL").all();
+        let count = 0;
+        for (const r of results || []) {
+          const newSlug = makeSlug(r.title);
+          await env.DB.prepare("UPDATE posts SET slug = ? WHERE slug = '' AND title = ?").bind(newSlug, r.title).run();
+          count++;
+        }
+        return json({ fixed: count, message: `修复了 ${count} 篇文章的 slug` });
+      }
+
+      // ── Debug ──
+      if (path === "/api/debug/posts" && method === "GET") {
+        const { results } = await env.DB.prepare("SELECT slug, title, created_at FROM posts ORDER BY created_at DESC LIMIT 10").all();
+        const pwRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'password'").first();
+        const postsWithSlugs = (results || []).map(r => ({ slug: r.slug || "(empty!)", title: r.title, created_at: r.created_at }));
+        return json({
+          totalPosts: results?.length || 0,
+          passwordSet: !!pwRow?.value,
+          passwordHint: pwRow?.value ? pwRow.value.slice(0, 2) + "***" : "NOT SET",
+          posts: postsWithSlugs,
+        });
+      }
+
+      // ── Tags ──
+      if (path === "/api/tags" && method === "GET") {
+        const { results } = await env.DB.prepare("SELECT tags FROM posts").all();
+        const counts = {};
+        for (const r of results || []) {
+          const tags = JSON.parse(r.tags || "[]");
+          for (const t of tags) {
+            if (t) counts[t] = (counts[t] || 0) + 1;
+          }
+        }
+        const list = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+        return json(list);
       }
 
       // ── Diary ──
@@ -91,7 +145,7 @@ export default {
       if (path === "/api/diary" && method === "POST") {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const b = await body();
-        const now = new Date().toISOString();
+        const now = bjNow();
         await env.DB.prepare("INSERT INTO diary (date,content,mood,tags,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(date) DO UPDATE SET content=excluded.content,mood=excluded.mood,tags=excluded.tags,updated_at=excluded.updated_at").bind(b.date, b.content, b.mood||"", JSON.stringify(b.tags||[]), now).run();
         return json({ ok: true });
       }
@@ -99,7 +153,7 @@ export default {
       if (path.startsWith("/api/diary/") && method === "PUT") {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const b = await body();
-        const now = new Date().toISOString();
+        const now = bjNow();
         await env.DB.prepare("UPDATE diary SET content=?,mood=?,tags=?,updated_at=? WHERE date=?").bind(b.content, b.mood||"", JSON.stringify(b.tags||[]), now, param(3)).run();
         return json({ ok: true });
       }
@@ -114,7 +168,7 @@ export default {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const b = await body();
         const id = b.id || crypto.randomUUID();
-        await env.DB.prepare("INSERT INTO todos (id,text,done,priority,created_at,due_date) VALUES (?,?,?,?,?,?)").bind(id, b.text, b.done?1:0, b.priority||"medium", new Date().toISOString(), b.dueDate||null).run();
+        await env.DB.prepare("INSERT INTO todos (id,text,done,priority,created_at,due_date) VALUES (?,?,?,?,?,?)").bind(id, b.text, b.done?1:0, b.priority||"medium", bjNow(), b.dueDate||null).run();
         return json({ id, ok: true });
       }
 
@@ -149,7 +203,7 @@ export default {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const b = await body();
         const id = b.id || crypto.randomUUID();
-        await env.DB.prepare("INSERT INTO schedule (id,title,date,time,duration,notes,created_at) VALUES (?,?,?,?,?,?,?)").bind(id, b.title, b.date, b.time||"09:00", b.duration||60, b.notes||"", new Date().toISOString()).run();
+        await env.DB.prepare("INSERT INTO schedule (id,title,date,time,duration,notes,created_at) VALUES (?,?,?,?,?,?,?)").bind(id, b.title, b.date, b.time||"09:00", b.duration||60, b.notes||"", bjNow()).run();
         return json({ id, ok: true });
       }
 
@@ -169,7 +223,7 @@ export default {
         if (!(await auth())) return json({ error: "密码错误" }, 401);
         const b = await body();
         const id = b.id || crypto.randomUUID();
-        await env.DB.prepare("INSERT INTO weight (id,date,weight,note,created_at) VALUES (?,?,?,?,?)").bind(id, b.date, b.weight, b.note||"", new Date().toISOString()).run();
+        await env.DB.prepare("INSERT INTO weight (id,date,weight,note,created_at) VALUES (?,?,?,?,?)").bind(id, b.date, b.weight, b.note||"", bjNow()).run();
         return json({ id, ok: true });
       }
 

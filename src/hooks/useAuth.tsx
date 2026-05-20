@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import * as api from "@/lib/api";
 import PasswordGate from "@/components/ui/PasswordGate";
 
@@ -15,9 +15,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pw, setPw] = useState(() => api.getPassword());
   const [pending, setPending] = useState<(() => void) | null>(null);
 
-  const ensureAuth = useCallback((onDone: () => void) => {
+  const ensureAuth = useCallback(async (onDone: () => void) => {
     const current = api.getPassword();
-    if (current) { onDone(); return; }
+    if (current) {
+      try {
+        const ok = await api.login(current);
+        if (ok) { onDone(); return; }
+        // login returned false — password wrong
+        api.clearPassword();
+        setPw("");
+      } catch {
+        // Network/auth error — try with new password
+        api.clearPassword();
+        setPw("");
+      }
+    }
     setPending(() => onDone);
   }, []);
 
@@ -29,6 +41,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTimeout(cb, 50);
     }
   };
+
+  // Listen for 401-induced re-auth
+  useEffect(() => {
+    const handler = () => {
+      api.clearPassword();
+      setPw("");
+    };
+    window.addEventListener("auth-needed", handler);
+    return () => window.removeEventListener("auth-needed", handler);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ hasAuth: !!pw, ensureAuth }}>

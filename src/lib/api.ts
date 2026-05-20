@@ -29,12 +29,23 @@ async function request<T>(
     const pw = getAuth();
     if (pw) headers["Authorization"] = `Bearer ${pw}`;
   }
-  const res = await fetch(`${BASE}${path}`, {
+  // Cache-busting for GET requests to avoid CDN stale cache
+  const url = method === "GET" && !path.includes("?")
+    ? `${BASE}${path}?_t=${Date.now()}`
+    : `${BASE}${path}`;
+  const res = await fetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
+    // 401 → clear stale password & trigger re-auth
+    if (res.status === 401 && auth) {
+      clearPassword();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth-needed"));
+      }
+    }
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || "请求失败");
   }
@@ -71,6 +82,14 @@ export function updatePost(slug: string, post: { title: string; content: string;
 
 export function deletePost(slug: string) {
   return request<any>("DELETE", `/api/posts/${slug}`, null, true);
+}
+
+export function getTags() {
+  return request<{ name: string; count: number }[]>("GET", "/api/tags");
+}
+
+export function fixSlugs() {
+  return request<{ fixed: number; message: string }>("POST", "/api/fix-slugs", {}, true);
 }
 
 // ── Diary ──

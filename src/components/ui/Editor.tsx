@@ -12,7 +12,7 @@ interface Props {
   initialDate?: string;       // for diary
   mode: "blog" | "diary";
   slug?: string;
-  onSaved?: () => void;
+  onSaved?: (post?: any) => void;
   onCancel?: () => void;
 }
 
@@ -29,7 +29,12 @@ export default function Editor({
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
   const [tags, setTags] = useState(initialTags.join(", "));
-  const [date, setDate] = useState(initialDate || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => {
+    if (initialDate) return initialDate;
+    const d = new Date();
+    d.setHours(d.getHours() + 8);
+    return d.toISOString().slice(0, 10);
+  });
   const [preview, setPreview] = useState(false);
   const [html, setHtml] = useState("");
   const [saving, setSaving] = useState(false);
@@ -56,18 +61,20 @@ export default function Editor({
         .filter(Boolean);
 
       if (mode === "blog") {
-        const postSlug = slug || title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+        const postSlug = slug || (title || "untitled").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9一-鿿\-]/g, "").slice(0, 60) + "-" + Date.now().toString(36);
         if (slug) {
           await api.updatePost(postSlug, { title, content, excerpt: content.slice(0, 100), tags: tagList });
         } else {
           await api.savePost({ slug: postSlug, title, content, excerpt: content.slice(0, 100), tags: tagList });
         }
         setMsg("文章已保存");
+        // Use local state as saved data — avoids D1 replication delay on SELECT
+        onSaved?.({ slug: postSlug, title, content, excerpt: content.slice(0, 100), tags: tagList, created_at: new Date().toISOString() });
       } else {
         await api.saveDiary({ date, content, mood: "", tags: tagList });
         setMsg("日记已保存");
+        onSaved?.();
       }
-      onSaved?.();
     } catch (e: any) {
       setMsg(e.message || "保存失败");
     }

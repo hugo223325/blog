@@ -48,5 +48,5 @@ CREATE TABLE IF NOT EXISTS weight (
   created_at TEXT NOT NULL
 );
 
--- Seed: default password
-INSERT OR IGNORE INTO settings (key, value) VALUES ('password', 'blog2026');
+-- Seed: default password (change immediately via /setup page)
+INSERT OR IGNORE INTO settings (key, value) VALUES ('password', 'changeme');

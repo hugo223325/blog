@@ -42,6 +42,13 @@ export default function TodoPage() {
     [addTodo, toast, ensureAuth]
   );
 
+  const doToggle = useCallback(
+    (id: string) => {
+      toggleTodo(id);
+    },
+    [toggleTodo]
+  );
+
   const handleRemove = useCallback(
     (id: string) => {
       ensureAuth(() => {
@@ -125,9 +132,9 @@ export default function TodoPage() {
               <TodoItem
                 key={item.id}
                 item={item}
-                onToggle={toggleTodo}
+                onToggle={(id) => ensureAuth(() => toggleTodo(id))}
                 onRemove={handleRemove}
-                onUpdateText={updateTodoText}
+                onUpdateText={(id, text) => ensureAuth(() => updateTodoText(id, text))}
               />
             ))}
           </div>
