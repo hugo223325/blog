@@ -49,7 +49,7 @@ function BlogInner() {
 
   const handleNew = () => ensureAuth(() => setCreating(true));
   const handleEdit = () => ensureAuth(() => setEditing(true));
-  const handleDelete = async (s: string) => { if (!confirm("确定删除？")) return; try { await api.deletePost(s); loadAll(); router.push("/blog"); } catch { alert("删除失败"); } };
+  const handleDelete = (s: string) => ensureAuth(async () => { if (!confirm("确定删除？")) return; try { await api.deletePost(s); loadAll(); router.push("/blog"); } catch { alert("删除失败"); } });
   const handleSaved = async (sp?: any) => {
     setEditing(false); setCreating(false);
     if (sp) { setPosts(prev => { const rest = prev.filter(p => p.slug !== sp.slug); return [sp, ...rest]; }); setHtml(await renderMarkdown(sp.content)); }
