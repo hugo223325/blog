@@ -18,7 +18,7 @@ export default {
     // JSON helpers
     const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
     const body = () => req.json().catch(() => ({}));
-    const param = (n) => path.split("/")[n];
+    const param = (n) => { const p = path.split("/")[n] || ""; try { return decodeURIComponent(p); } catch { return p; } };
     // Beijing time (UTC+8)
     const bjNow = () => {
       const d = new Date();
@@ -70,7 +70,10 @@ export default {
         const b = await body();
         const slug = b.slug || makeSlug(b.title);
         const now = bjNow();
-        await env.DB.prepare("INSERT INTO posts (slug,title,content,excerpt,tags,created_at,updated_at) VALUES (?,?,?,?,?,?,?)").bind(slug, b.title, b.content, b.excerpt||"", JSON.stringify(b.tags||[]), now, now).run();
+        await env.DB.prepare(
+          `INSERT INTO posts (slug,title,content,excerpt,tags,created_at,updated_at) VALUES (?,?,?,?,?,?,?)
+           ON CONFLICT(slug) DO UPDATE SET title=excluded.title,content=excluded.content,excerpt=excluded.excerpt,tags=excluded.tags,updated_at=excluded.updated_at`
+        ).bind(slug, b.title, b.content, b.excerpt||"", JSON.stringify(b.tags||[]), now, now).run();
         return json({ slug, ok: true });
       }
 

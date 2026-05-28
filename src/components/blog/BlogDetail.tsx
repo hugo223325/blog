@@ -6,9 +6,11 @@ import BlogContent from "@/components/blog/BlogContent";
 
 interface Post { slug: string; title: string; content: string; tags: string[]; created_at: string; }
 
-export default function PostDetail({ post, html, onEdit, onDelete }: {
-  post: Post; html: string; onEdit: () => void; onDelete: () => void;
+export default function BlogDetail({ post, html, onDelete }: {
+  post: Post; html: string; onDelete: () => void;
 }) {
+  const rm = Math.max(1, Math.ceil(post.content.length / 400));
+  const editUrl = "/blog?edit=1&slug=" + encodeURIComponent(post.slug);
   const el = <div className="max-w-3xl mx-auto px-4 py-12">
     <Link href="/blog"
       className="inline-flex items-center gap-1 font-sans text-sm text-sage hover:underline mb-8">
@@ -20,7 +22,7 @@ export default function PostDetail({ post, html, onEdit, onDelete }: {
           {post.title}
         </h1>
         <p className="mt-2 font-sans text-xs text-ink-muted">
-          约 {post.content.length} 字 · 阅读 {Math.max(1, Math.ceil(post.content.length / 400))} 分钟
+          约 {post.content.length} 字 · 阅读 {rm} 分钟
         </p>
         <div className="mt-4 flex items-center gap-3 font-sans text-sm">
           <time className="text-ink-muted">
@@ -29,7 +31,7 @@ export default function PostDetail({ post, html, onEdit, onDelete }: {
           {post.tags.length > 0 && (
             <div className="flex items-center gap-1.5">
               {post.tags.map((t: string) => (
-                <Link key={t} href={`/blog?tag=${encodeURIComponent(t)}`}
+                <Link key={t} href={"/blog?tag=" + encodeURIComponent(t)}
                   className="text-sage hover:underline">{t}</Link>
               ))}
             </div>
@@ -37,10 +39,10 @@ export default function PostDetail({ post, html, onEdit, onDelete }: {
         </div>
       </header>
       <div className="flex items-center gap-3 mb-10">
-        <button onClick={onEdit}
+        <Link href={editUrl}
           className="inline-flex items-center gap-1.5 px-4 py-2 font-sans text-xs rounded-md border border-page-sand text-ink-secondary hover:bg-page-warm transition-colors duration-200">
           <PenLine size={14} />编辑
-        </button>
+        </Link>
         <button onClick={onDelete}
           className="inline-flex items-center gap-1.5 px-4 py-2 font-sans text-xs rounded-md border border-page-sand text-terracotta hover:bg-terracotta-soft transition-colors duration-200">
           <Trash2 size={14} />删除
@@ -49,7 +51,7 @@ export default function PostDetail({ post, html, onEdit, onDelete }: {
       {html
         ? <BlogContent html={html} />
         : <div className="space-y-3">
-            {[1,2,3].map(i => <div key={i} className="h-4 rounded animate-shimmer" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-4 rounded animate-shimmer" />)}
           </div>
       }
     </article>

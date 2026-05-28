@@ -62,14 +62,10 @@ export default function Editor({
 
       if (mode === "blog") {
         const postSlug = slug || (title || "untitled").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9一-鿿\-]/g, "").slice(0, 60) + "-" + Date.now().toString(36);
-        if (slug) {
-          await api.updatePost(postSlug, { title, content, excerpt: content.slice(0, 100), tags: tagList });
-        } else {
-          await api.savePost({ slug: postSlug, title, content, excerpt: content.slice(0, 100), tags: tagList });
-        }
+        // Editor does NOT call API — BlogShell handles it via onSaved
+        const postData = { slug: postSlug, title, content, excerpt: content.slice(0, 100), tags: tagList, created_at: new Date().toISOString() };
+        onSaved?.(postData);
         setMsg("文章已保存");
-        // Use local state as saved data — avoids D1 replication delay on SELECT
-        onSaved?.({ slug: postSlug, title, content, excerpt: content.slice(0, 100), tags: tagList, created_at: new Date().toISOString() });
       } else {
         await api.saveDiary({ date, content, mood: "", tags: tagList });
         setMsg("日记已保存");
